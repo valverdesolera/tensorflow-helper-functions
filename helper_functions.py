@@ -7,17 +7,14 @@ Date: Jul 18, 2023
 """
 import matplotlib.pyplot as plt
 import zipfile
+import tensorflow
 from typing import List
 from os.path import join
 from os import walk
 from datetime import datetime
-from tensorflow.io import read_file
-from tensorflow.image import decode_jpeg, resize
-from tensorflow import Tensor
-from tensorflow.keras import Model
+from tensorflow.keras import Model  # type: ignore
 from tensorflow import expand_dims
 from tensorflow import round
-from tensorflow.keras.callbacks import TensorBoard, History
 
 
 # Function to import an image and resize it to be able to be used with a model
@@ -28,14 +25,15 @@ def load_and_prep_image(filename: str, img_shape: int = 224, scale: bool = True,
     :param filename: str. Filename of target image
     :param img_shape: int. Image shape
     :param scale: bool. Whether to scale pixel values to range 0-1 or not
+    :param color_channels: int. Number of color channels
     :return: tensorflow.Tensor. Processed image
     """
     # Reading the image
-    image_file = read_file(filename)
+    image_file = tensorflow.io.read_file(filename)
     # Decoding the image
-    decoded_image = decode_jpeg(image_file, channels=color_channels)
+    decoded_image = tensorflow.image.decode_jpeg(image_file, channels=color_channels)
     # Resizing the image
-    resized_image = resize(decoded_image, [img_shape, img_shape])
+    resized_image = tensorflow.image.resize(decoded_image, [img_shape, img_shape])
     if scale:
         # Scale the image (values between 0 and 1)
         scaled_image = resized_image / 224.
@@ -68,7 +66,7 @@ def predict_and_plot(model: Model, filename: str, class_names: List[str]) -> Non
     plt.axis(False)
 
 
-def create_tensorboard_callback(dir_name: str, experiment_name: str) -> TensorBoard:
+def create_tensorboard_callback(dir_name: str, experiment_name: str) -> tensorflow.keras.callbacks.TensorBoard:
     """
     Creates a TensorBoard callback instance to store log files. The log files are stored in a
     directory named "dir_name/experiment_name/current_datetime/"
@@ -77,12 +75,12 @@ def create_tensorboard_callback(dir_name: str, experiment_name: str) -> TensorBo
     :return: TensorBoard. TensorBoard callback instance
     """
     log_dir = join(dir_name, experiment_name, datetime.now().strftime("%Y%m%d-%H%M%S"))
-    tensorboard_callback = TensorBoard(log_dir=log_dir)
+    tensorboard_callback = tensorflow.keras.callbacks.TensorBoard(log_dir=log_dir)
     print(f"Saving TensorBoard log files to: {log_dir}")
     return tensorboard_callback
 
 
-def plot_loss_curves(history: History) -> None:
+def plot_loss_curves(history: tensorflow.keras.callbacks.History) -> None:
     """
     Plots the loss curves of a trained model for training and validation metrics
     :param history: History. TensorFlow History object
