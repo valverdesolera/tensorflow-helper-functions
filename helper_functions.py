@@ -8,7 +8,6 @@ Date: Jul 18, 2023
 import zipfile
 from typing import List
 from datetime import datetime
-from typing import Any
 import os
 import matplotlib.pyplot as plt  # type: ignore
 import tensorflow  # type: ignore
@@ -26,12 +25,12 @@ def load_and_prep_image(filename: str, img_shape: int = 224, scale: bool = True,
     :param img_shape: int. Image shape
     :param scale: bool. Whether to scale pixel values to range 0-1 or not
     :param color_channels: int. Number of color channels
-    :return: tensorflow.Tensor. Processed image
+    :return: tensorflow.Tensor. Processed image of shape (img_shape, img_shape, color_channels)
     """
     # Reading the image
     image_file = tensorflow.io.read_file(filename)
     # Decoding the image
-    decoded_image = tensorflow.image.decode_jpeg(image_file, channels=color_channels)
+    decoded_image = tensorflow.image.decode_image(image_file, channels=color_channels)
     # Resizing the image
     resized_image = tensorflow.image.resize(decoded_image, [img_shape, img_shape])
     if scale:
