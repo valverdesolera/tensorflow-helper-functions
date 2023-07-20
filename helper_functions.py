@@ -5,23 +5,23 @@ Author: -
 Email: valverdesolera@gmail.com
 Date: Jul 18, 2023
 """
-import matplotlib.pyplot as plt
 import zipfile
-import tensorflow
 from typing import List
-from os.path import join
-from os import walk
 from datetime import datetime
-from tensorflow.keras import Model  # type: ignore
-from tensorflow import expand_dims
-from tensorflow import round
+from typing import Any
+import os
+import matplotlib.pyplot as plt  # type: ignore
+import tensorflow  # type: ignore
+from matplotlib.image import imread  # type: ignore
+import requests  # type: ignore
+import numpy as np
 
 
 # Function to import an image and resize it to be able to be used with a model
 def load_and_prep_image(filename: str, img_shape: int = 224, scale: bool = True,
                         color_channels: int = 3) -> tensorflow.Tensor:
     """
-    Reads an image from filename, turns it into a tensor and reshapes it to (img_shape, img_shape, color_channels
+    Reads an image from filename, turns it into a tensor and reshapes it to (img_shape, img_shape, color_channels)
     :param filename: str. Filename of target image
     :param img_shape: int. Image shape
     :param scale: bool. Whether to scale pixel values to range 0-1 or not
@@ -41,7 +41,7 @@ def load_and_prep_image(filename: str, img_shape: int = 224, scale: bool = True,
     return resized_image
 
 
-def predict_and_plot(model: Model, filename: str, class_names: List[str]) -> None:
+def predict_and_plot(model: tensorflow.keras.Model, filename: str, class_names: List[str]) -> None:
     """
     Imports an image located at filename, makes a prediction on it with a trained model and plots the image with
     the predicted class as the title.
@@ -53,12 +53,12 @@ def predict_and_plot(model: Model, filename: str, class_names: List[str]) -> Non
     # Import the target image and preprocess it
     image = load_and_prep_image(filename)
     # Make a prediction
-    prediction = model.predict(expand_dims(image, axis=0))
+    prediction = model.predict(tensorflow.expand_dims(image, axis=0))
     # Get the predicted class
     if len(prediction[0]) > 1:
         predicted_class = class_names[prediction.argmax()]
     else:
-        predicted_class = class_names[int(round(prediction)[0][0])]
+        predicted_class = class_names[int(tensorflow.round(prediction)[0][0])]
 
     # Plot the images and predicted class
     plt.imshow(image)
@@ -74,7 +74,7 @@ def create_tensorboard_callback(dir_name: str, experiment_name: str) -> tensorfl
     :param experiment_name: str. Name of the experiment
     :return: TensorBoard. TensorBoard callback instance
     """
-    log_dir = join(dir_name, experiment_name, datetime.now().strftime("%Y%m%d-%H%M%S"))
+    log_dir = os.path.join(dir_name, experiment_name, datetime.now().strftime("%Y%m%d-%H%M%S"))
     tensorboard_callback = tensorflow.keras.callbacks.TensorBoard(log_dir=log_dir)
     print(f"Saving TensorBoard log files to: {log_dir}")
     return tensorboard_callback
@@ -122,5 +122,68 @@ def walk_through_dir(dir_path: str) -> None:
     :param dir_path: str. Path to target directory
     :return: None
     """
-    for dirpath, dirnames, filenames in walk(dir_path):
+    for dirpath, dirnames, filenames in os.walk(dir_path):
         print(f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'.")
+
+
+def download_file_from_url(url: str) -> None:
+    """
+    Downloads a file from url
+    :param url: str. URL of target file
+    :return: None
+    """
+    file_name = os.path.basename(url)
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(file_name, "wb") as file:
+            file.write(response.content)
+        print(f"File {file_name} downloaded successfully.")
+    else:
+        print(f"Error downloading file {file_name}. Status code: {response.status_code}")
+
+
+def print_random_image_from_path(path_dir: str, dataset: tensorflow.data.Dataset) -> None:
+    """
+    Prints a random image from path_dir
+    :param path_dir: str. Path to target directory
+    :param dataset: tensorflow.data.Dataset. Dataset containing the class names
+    :return: None.
+    """
+    target_class = np.random.choice(dataset.class_names)
+    target_dir = os.path.join(path_dir, target_class)
+    random_image = np.random.choice(os.listdir(target_dir))
+    random_image_path = os.path.join(target_dir, random_image)
+    image = imread(random_image_path)
+    plt.imshow(image)
+    plt.axis(False)
+
+
+def compare_histories(original_history: tensorflow.keras.callbacks.History,
+                      new_history: tensorflow.keras.callbacks.History, initial_epochs: int = 5) -> None:
+    """
+    Compares two TensorFlow model History objects
+    :param original_history: tensorflow.keras.callbacks.History. History object from original model (before new_history)
+    :param new_history: tensorflow.keras.callbacks.History. History object from continued model training (after original_history)
+    :param initial_epochs: int. Number of epochs in original_history (new_history plot starts from here)
+    :return: None.
+    """
+    # Combine the `original_history` with the `new_history`
+    total_accuracy = original_history.history["accuracy"] + new_history.history["accuracy"]
+    total_loss = original_history.history["loss"] + new_history.history["loss"]
+    total_val_accuracy = original_history.history["val_accuracy"] + new_history.history["val_accuracy"]
+    total_val_loss = original_history.history["val_loss"] + new_history.history["val_loss"]
+    # Make a plot for Accuracy
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2, 1, 1)
+    plt.plot(total_accuracy, label="Training Accuracy")
+    plt.plot(total_val_accuracy, label="Validation Accuracy")
+    plt.plot([initial_epochs - 1, initial_epochs - 1], plt.ylim(), label="Start Fine Tuning")
+    plt.legend(loc="lower right")
+    plt.title("Training and Validation Accuracy")
+    # Make a plot for Loss
+    plt.subplot(2, 1, 2)
+    plt.plot(total_loss, label="Training Loss")
+    plt.plot(total_val_loss, label="Validation Loss")
+    plt.plot([initial_epochs - 1, initial_epochs - 1], plt.ylim(), label="Start Fine Tuning")
+    plt.legend(loc="upper right")
+    plt.title("Training and Validation Loss")
